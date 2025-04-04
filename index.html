@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Sopas de Letras Cuadradas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Schoolbell&display=swap');
+        
+        .font-schoolbell {
+            font-family: 'Schoolbell', cursive;
+        }
+        
+        .word-search-cell {
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: default;
+            transition: all 0.2s;
+        }
+        
+        .word-search-cell:hover {
+            transform: scale(1.1);
+            background-color: #f0f9ff;
+        }
+        
+        #wordSearchGrid {
+            border: 3px solid black;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .word-item {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .word-item:hover {
+            background-color: #f0f9ff;
+        }
+        
+        .word-item.found {
+            text-decoration: line-through;
+            color: #4ade80;
+        }
+        
+        .dropzone {
+            border: 2px dashed #cbd5e0;
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .dropzone.active {
+            border-color: #3b82f6;
+            background-color: #f0f9ff;
+        }
+        
+        .custom-radio input:checked + label {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        /* Estilo para asegurar que la cuadrícula sea cuadrada */
+        .square-grid {
+            display: inline-block;
+        }
+        
+        /* --- INICIO: Reglas CSS añadidas para corregir la cuadrícula --- */
+        #wordSearchGrid table {
+            display: table; /* Asegura que el elemento table se comporte como tabla */
+            border-collapse: collapse; /* Mantiene los bordes unidos */
+        }
+        
+        #wordSearchGrid tr {
+            display: table-row; /* Asegura que el elemento tr se comporte como fila */
+        }
+        
+        #wordSearchGrid td.word-search-cell {
+            display: table-cell; /* Asegura que el elemento td se comporte como celda */
+            width: 35px;
+            height: 35px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+            border: 1px solid #e2e8f0; /* Añade un borde si quieres verlo claramente */
+            padding: 0; /* Evita padding extra */
+        }
+        
+        /* Opcional: Si NO quieres bordes visibles */
+        #wordSearchGrid table.no-grid-lines td.word-search-cell {
+            border: none;
+        }
+        
+        /* Estilo para las celdas de solución */
+        .solution-cell {
+            background-color: #ffedd5;
+            color: #ea580c;
+            font-weight: 900;
+        }
+        
+        /* Botón de solución */
+        .solution-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .solution-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .solution-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Animación para mostrar la solución */
+        @keyframes revealSolution {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .reveal-animation {
+            animation: revealSolution 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-600 mb-2">Generador de Sopas de Letras Cuadradas</h1>
+            <p class="text-gray-600">Crea sopas de letras cuadradas perfectas con palabras ocultas</p>
+        </header>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Panel de configuración -->
+            <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-1">
+                <h2 class="text-xl font-semibold mb-4 text-blue-600">Configuración</h2>
+                
+                <!-- Título -->
+                <div class="mb-6">
+                    <label for="puzzleTitle" class="block text-sm font-medium text-gray-700 mb-1">Título de la sopa de letras</label>
+                    <input type="text" id="puzzleTitle" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Mi sopa de letras">
+                </div>
+                
+                <!-- Nombre del creador -->
+                <div class="mb-6">
+                    <label for="creatorName" class="block text-sm font-medium text-gray-700 mb-1">Elaborado por</label>
+                    <input type="text" id="creatorName" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Tu nombre">
+                </div>
+                
+                <!-- Imagen de encabezado -->
+                <div class="mb-6">
+                    <label for="headerImage" class="block text-sm font-medium text-gray-700 mb-1">Imagen de encabezado (Opcional)</label>
+                    <input type="file" id="headerImage" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+                
+                <!-- Tamaño de la cuadrícula -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tamaño del cuadrado</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="custom-radio">
+                            <input type="radio" id="sizeSmall" name="gridSize" value="small" class="hidden">
+                            <label for="sizeSmall" class="block text-center py-2 px-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">Pequeño (10x10)</label>
+                        </div>
+                        <div class="custom-radio">
+                            <input type="radio" id="sizeMedium" name="gridSize" value="medium" checked class="hidden">
+                            <label for="sizeMedium" class="block text-center py-2 px-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">Mediano (15x15)</label>
+                        </div>
+                        <div class="custom-radio">
+                            <input type="radio" id="sizeLarge" name="gridSize" value="large" class="hidden">
+                            <label for="sizeLarge" class="block text-center py-2 px-3 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">Grande (20x20)</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dirección de las palabras -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Dirección de las palabras</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <input type="checkbox" id="directionHorizontal" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="directionHorizontal" class="ml-2 text-sm text-gray-700">Horizontal</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="directionVertical" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="directionVertical" class="ml-2 text-sm text-gray-700">Vertical</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="directionDiagonal" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="directionDiagonal" class="ml-2 text-sm text-gray-700">Diagonal</label>
+                        </div>
+                        <div>
+                            <input type="checkbox" id="directionReverse" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="directionReverse" class="ml-2 text-sm text-gray-700">Invertidas</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Estilo de la cuadrícula -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Estilo de la cuadrícula</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="fontFamily" class="block text-xs font-medium text-gray-500 mb-1">Fuente</label>
+                            <select id="fontFamily" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                <option value="Arial, sans-serif">Arial</option>
+                                <option value="'Times New Roman', serif">Times New Roman</option>
+                                <option value="'Courier New', monospace">Courier New</option>
+                                <option value="'Schoolbell', cursive">Schoolbell</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="fontSize" class="block text-xs font-medium text-gray-500 mb-1">Tamaño de letra</label>
+                            <select id="fontSize" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm">
+                                <option value="16px">Pequeño</option>
+                                <option value="20px" selected>Mediano</option>
+                                <option value="24px">Grande</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <input type="checkbox" id="showGridLines" checked class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                        <label for="showGridLines" class="ml-2 text-sm text-gray-700">Mostrar bordes de celdas</label>
+                    </div>
+                </div>
+                
+                <!-- Lista de palabras -->
+                <div class="mb-6">
+                    <label for="wordList" class="block text-sm font-medium text-gray-700 mb-1">Lista de palabras (una por línea)</label>
+                    <textarea id="wordList" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Ejemplo: animal planta ciudad pais"></textarea>
+                    <div class="flex justify-between items-center mt-2">
+                        <span id="wordCount" class="text-xs text-gray-500">0 palabras</span>
+                        <button id="clearWords" class="text-xs text-red-500 hover:text-red-700">Limpiar todo</button>
+                    </div>
+                </div>
+                
+                <!-- Botones de acción -->
+                <div class="flex flex-col space-y-2">
+                    <button id="generateBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-medium transition duration-150 ease-in-out">
+                        Generar Sopa de Letras
+                    </button>
+                    <button id="exportBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md font-medium transition duration-150 ease-in-out flex items-center justify-center" disabled>
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Exportar a PDF
+                    </button>
+                </div>
+            </div>
+                    
+            <!-- Previsualización -->
+            <div class="bg-white rounded-lg shadow-md p-6 lg:col-span-2">
+                <h2 class="text-xl font-semibold mb-4 text-blue-600">Previsualización</h2>
+                
+                <div id="previewContainer" class="flex flex-col items-center">
+                    <div id="emptyState" class="text-center py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                        <h3 class="mt-2 text-lg font-medium text-gray-900">Sopa de letras vacía</h3>
+                        <p class="mt-1 text-sm text-gray-500">Ingresa algunas palabras y haz clic en "Generar" para crear tu sopa de letras.</p>
+                    </div>
+                                    
+                    <div id="puzzlePreview" class="hidden w-full">
+                        <div id="puzzleHeader" class="text-center mb-4">
+                            <h3 id="previewTitle" class="text-2xl font-bold"></h3>
+                            <hr class="border-gray-200 my-2">
+                        </div>
+                                                
+                        <div class="flex flex-col items-center w-full">
+                            <div id="headerImagePreviewContainer" class="mb-4 text-center hidden">
+                                <img id="headerImagePreview" src="#" alt="Vista previa del encabezado" class="max-w-xs max-h-32 mx-auto object-contain">
+                            </div>
+
+                            <div class="flex justify-center w-full mb-6 relative">
+                                <div id="wordSearchGrid" class="square-grid bg-white rounded overflow-hidden shadow-md">
+                                </div>
+                                <button id="solutionBtn" class="solution-btn absolute -right-4 -top-4 bg-orange-500 hover:bg-orange-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md">
+                                    <i class="fas fa-lightbulb text-xl"></i>
+                                </button>
+                            </div>
+
+                            <div class="w-full max-w-md">
+                                <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
+                                    <h4 class="font-semibold text-lg mb-2 text-center">Palabras a encontrar:</h4>
+                                    <div id="wordListPreview" class="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="creatorNamePreviewContainer" class="mt-4 text-sm text-gray-600 hidden">
+                                Elaborado por: <span id="creatorNamePreview"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables globales
+            let wordSearchGrid = [];
+            let wordList = [];
+            let foundWords = [];
+            let wordPositions = {}; // Almacenar las posiciones de las palabras
+            let isSolutionShown = false;
+            
+            // Elementos del DOM
+            const wordListTextarea = document.getElementById('wordList');
+            const wordCountSpan = document.getElementById('wordCount');
+            const clearWordsBtn = document.getElementById('clearWords');
+            const generateBtn = document.getElementById('generateBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const emptyState = document.getElementById('emptyState');
+            const puzzlePreview = document.getElementById('puzzlePreview');
+            const wordSearchGridDiv = document.getElementById('wordSearchGrid');
+            const wordListPreview = document.getElementById('wordListPreview');
+            const previewTitle = document.getElementById('previewTitle');
+            const creatorNameInput = document.getElementById('creatorName');
+            const headerImageInput = document.getElementById('headerImage');
+            const headerImagePreviewContainer = document.getElementById('headerImagePreviewContainer');
+            const headerImagePreview = document.getElementById('headerImagePreview');
+            const creatorNamePreviewContainer = document.getElementById('creatorNamePreviewContainer');
+            const creatorNamePreview = document.getElementById('creatorNamePreview');
+            const solutionBtn = document.getElementById('solutionBtn');
+            
+            // Event listeners
+            wordListTextarea.addEventListener('input', updateWordCount);
+            clearWordsBtn.addEventListener('click', clearWordList);
+            generateBtn.addEventListener('click', generateWordSearch);
+            exportBtn.addEventListener('click', exportToPDF);
+            headerImageInput.addEventListener('change', handleImageUpload);
+            solutionBtn.addEventListener('click', toggleSolution);
+            
+            // Funciones principales
+            function updateWordCount() {
+                const words = getWordList();
+                wordCountSpan.textContent = `${words.length} palabra${words.length !== 1 ? 's' : ''}`;
+            }
+            
+            function clearWordList() {
+                wordListTextarea.value = '';
+                updateWordCount();
+            }
+            
+            function handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        headerImagePreview.src = e.target.result;
+                        headerImagePreviewContainer.classList.remove('hidden');
+                        headerImagePreviewContainer.style.display = ''; // Asegura que sea visible
+                    }
+                    reader.readAsDataURL(file);
+                } else {
+                    // Opcional: Limpiar si no es imagen válida o se deselecciona
+                    headerImagePreview.src = '#';
+                    headerImagePreviewContainer.classList.add('hidden');
+                    headerImagePreviewContainer.style.display = 'none';
+                    
+                    // Limpiar el input por si el usuario quiere subir la misma imagen de nuevo tras un error
+                    headerImageInput.value = '';
+                }
+            }
+            
+            function getWordList() {
+                const text = wordListTextarea.value.trim();
+                if (!text) return [];
+                
+                return text.split('\n')
+                    .map(word => word.trim().toUpperCase())
+                    .filter(word => word.length > 0);
+            }
+            
+            function generateWordSearch() {
+                wordList = getWordList();
+                
+                if (wordList.length === 0) {
+                    alert('Por favor, ingresa al menos una palabra.');
+                    return;
+                }
+                
+                // Validar palabras
+                const invalidWords = wordList.filter(word => !/^[A-ZÁÉÍÓÚÑ]+$/i.test(word));
+                if (invalidWords.length > 0) {
+                    alert(`Las siguientes palabras contienen caracteres no permitidos: ${invalidWords.join(', ')}`);
+                    return;
+                }
+                
+                // Obtener tamaño de la cuadrícula
+                const gridSize = document.querySelector('input[name="gridSize"]:checked').value;
+                let size;
+                
+                switch(gridSize) {
+                    case 'small': size = 10; break;
+                    case 'medium': size = 15; break;
+                    case 'large': size = 20; break;
+                }
+                
+                // Validar que las palabras no sean más largas que el tamaño de la cuadrícula
+                const tooLongWords = wordList.filter(word => word.length > size);
+                if (tooLongWords.length > 0) {
+                    alert(`Las siguientes palabras son demasiado largas para el tamaño seleccionado (${size}x${size}): ${tooLongWords.join(', ')}`);
+                    return;
+                }
+                
+                // Obtener configuración de direcciones
+                const directions = {
+                    horizontal: document.getElementById('directionHorizontal').checked,
+                    vertical: document.getElementById('directionVertical').checked,
+                    diagonal: document.getElementById('directionDiagonal').checked,
+                    reverse: document.getElementById('directionReverse').checked
+                };
+                
+                // Generar la sopa de letras cuadrada
+                wordSearchGrid = generateSquareGrid(size, wordList, directions);
+                
+                // Mostrar la previsualización
+                displayWordSearch();
+                
+                // Habilitar botón de exportación
+                exportBtn.disabled = false;
+                
+                // Resetear estado de solución
+                isSolutionShown = false;
+                solutionBtn.innerHTML = '<i class="fas fa-lightbulb text-xl"></i>';
+            }
+            
+            function generateSquareGrid(size, words, directions) {
+                // Inicializar cuadrícula cuadrada vacía
+                let grid = Array(size).fill().map(() => Array(size).fill(''));
+                
+                // Reiniciar almacenamiento de posiciones
+                wordPositions = {};
+                
+                // Ordenar palabras de más larga a más corta para colocarlas primero
+                words.sort((a, b) => b.length - a.length);
+                
+                // Intentar colocar cada palabra
+                for (const word of words) {
+                    if (!placeWordInSquareGrid(grid, word, directions)) {
+                        console.warn(`No se pudo colocar la palabra: ${word}`);
+                    }
+                }
+                
+                // Rellenar espacios vacíos con letras aleatorias
+                fillEmptyCells(grid);
+                
+                return grid;
+            }
+            
+            function placeWordInSquareGrid(grid, word, directions) {
+                const size = grid.length;
+                const wordLength = word.length;
+                
+                // Generar todas las posibles direcciones
+                const possibleDirections = [];
+                
+                if (directions.horizontal) {
+                    possibleDirections.push({dr: 0, dc: 1}); // Derecha
+                    if (directions.reverse) possibleDirections.push({dr: 0, dc: -1}); // Izquierda
+                }
+                if (directions.vertical) {
+                    possibleDirections.push({dr: 1, dc: 0}); // Abajo
+                    if (directions.reverse) possibleDirections.push({dr: -1, dc: 0}); // Arriba
+                }
+                if (directions.diagonal) {
+                    possibleDirections.push({dr: 1, dc: 1}); // Diagonal derecha abajo
+                    if (directions.reverse) {
+                        possibleDirections.push({dr: -1, dc: -1}); // Diagonal izquierda arriba
+                        possibleDirections.push({dr: 1, dc: -1}); // Diagonal izquierda abajo
+                        possibleDirections.push({dr: -1, dc: 1}); // Diagonal derecha arriba
+                    }
+                }
+                
+                // Mezclar direcciones para mayor aleatoriedad
+                shuffleArray(possibleDirections);
+                
+                // Generar todas las posibles posiciones iniciales
+                const positions = [];
+                for (let row = 0; row < size; row++) {
+                    for (let col = 0; col < size; col++) {
+                        positions.push({row, col});
+                    }
+                }
+                
+                // Mezclar posiciones para mayor aleatoriedad
+                shuffleArray(positions);
+                
+                // Intentar colocar la palabra en cada posición y dirección posible
+                for (const position of positions) {
+                    for (const direction of possibleDirections) {
+                        const {dr, dc} = direction;
+                        const {row, col} = position;
+                        
+                        // Verificar si la palabra cabe en esta dirección
+                        const endRow = row + (wordLength - 1) * dr;
+                        const endCol = col + (wordLength - 1) * dc;
+                        
+                        if (endRow < 0 || endRow >= size || endCol < 0 || endCol >= size) {
+                            continue; // No cabe en esta dirección
+                        }
+                        
+                        // Verificar si la palabra puede colocarse sin conflictos
+                        let canPlace = true;
+                        for (let i = 0; i < wordLength; i++) {
+                            const currentRow = row + i * dr;
+                            const currentCol = col + i * dc;
+                            const cell = grid[currentRow][currentCol];
+                            
+                            if (cell !== '' && cell !== word[i]) {
+                                canPlace = false;
+                                break;
+                            }
+                        }
+                        
+                        // Si se puede colocar, hacerlo
+                        if (canPlace) {
+                            // Almacenar las posiciones de la palabra
+                            wordPositions[word] = {
+                                start: {row, col},
+                                direction: {dr, dc},
+                                cells: []
+                            };
+                            
+                            for (let i = 0; i < wordLength; i++) {
+                                const currentRow = row + i * dr;
+                                const currentCol = col + i * dc;
+                                grid[currentRow][currentCol] = word[i];
+                                
+                                // Guardar referencia a las celdas de esta palabra
+                                wordPositions[word].cells.push({
+                                    row: currentRow,
+                                    col: currentCol
+                                });
+                            }
+                            return true;
+                        }
+                    }
+                }
+                
+                return false;
+            }
+            
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+            
+            function fillEmptyCells(grid) {
+                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÑ';
+                for (let row = 0; row < grid.length; row++) {
+                    for (let col = 0; col < grid[row].length; col++) {
+                        if (grid[row][col] === '') {
+                            grid[row][col] = letters[Math.floor(Math.random() * letters.length)];
+                        }
+                    }
+                }
+            }
+            
+            function displayWordSearch() {
+                // Ocultar estado vacío y mostrar previsualización
+                emptyState.classList.add('hidden');
+                puzzlePreview.classList.remove('hidden');
+                
+                // Aplicar título
+                const title = document.getElementById('puzzleTitle').value || 'Sopa de Letras';
+                previewTitle.textContent = title;
+                
+                // Mostrar nombre del creador si existe
+                const creatorName = creatorNameInput.value.trim();
+                if (creatorName) {
+                    creatorNamePreview.textContent = creatorName;
+                    creatorNamePreviewContainer.classList.remove('hidden');
+                    creatorNamePreviewContainer.style.display = ''; // Asegurar visibilidad
+                } else {
+                    creatorNamePreviewContainer.classList.add('hidden');
+                    creatorNamePreviewContainer.style.display = 'none'; // Ocultar si no hay nombre
+                }
+                
+                // Asegurarse de que la imagen SÓLO se muestre si ya hay una cargada
+                if (!headerImagePreview.src || headerImagePreview.src.endsWith('#')) {
+                    headerImagePreviewContainer.classList.add('hidden');
+                    headerImagePreviewContainer.style.display = 'none';
+                } else {
+                    headerImagePreviewContainer.classList.remove('hidden');
+                    headerImagePreviewContainer.style.display = ''; // Mantenerla visible si ya está cargada
+                }
+                
+                // Aplicar estilo de fuente
+                const fontFamily = document.getElementById('fontFamily').value;
+                const fontSize = document.getElementById('fontSize').value;
+                const showGridLines = document.getElementById('showGridLines').checked;
+                
+                previewTitle.style.fontFamily = fontFamily;
+                wordSearchGridDiv.style.fontFamily = fontFamily;
+                wordSearchGridDiv.style.fontSize = fontSize;
+                
+                // Limpiar cuadrícula existente
+                wordSearchGridDiv.innerHTML = '';
+                
+                // Crear tabla para la cuadrícula cuadrada
+                const table = document.createElement('table');
+                table.className = showGridLines ? 'word-search-table' : 'word-search-table no-grid-lines';
+                
+                // Crear filas y celdas
+                for (let row = 0; row < wordSearchGrid.length; row++) {
+                    const tr = document.createElement('tr');
+                    
+                    for (let col = 0; col < wordSearchGrid[row].length; col++) {
+                        const td = document.createElement('td');
+                        td.className = 'word-search-cell';
+                        td.textContent = wordSearchGrid[row][col];
+                        td.dataset.row = row;
+                        td.dataset.col = col;
+                        
+                        tr.appendChild(td);
+                    }
+                    
+                    table.appendChild(tr);
+                }
+                
+                wordSearchGridDiv.appendChild(table);
+                
+                // Mostrar lista de palabras
+                wordListPreview.innerHTML = '';
+                wordList.forEach(word => {
+                    const wordElement = document.createElement('div');
+                    wordElement.className = 'word-item p-1 rounded';
+                    wordElement.textContent = word;
+                    wordElement.dataset.word = word;
+                    wordListPreview.appendChild(wordElement);
+                });
+                
+                // Reiniciar palabras encontradas
+                foundWords = [];
+                
+                // Ocultar solución si está visible
+                if (isSolutionShown) {
+                    toggleSolution();
+                }
+            }
+            
+            function toggleSolution() {
+                const cells = document.querySelectorAll('#wordSearchGrid td.word-search-cell');
+                
+                if (!isSolutionShown) {
+                    // Mostrar solución
+                    cells.forEach(cell => {
+                        cell.classList.remove('solution-cell', 'reveal-animation');
+                    });
+                    
+                    // Resaltar las palabras encontradas
+                    wordList.forEach(word => {
+                        if (wordPositions[word]) {
+                            wordPositions[word].cells.forEach(pos => {
+                                const cell = document.querySelector(`td[data-row="${pos.row}"][data-col="${pos.col}"]`);
+                                if (cell) {
+                                    cell.classList.add('solution-cell', 'reveal-animation');
+                                }
+                            });
+                        }
+                    });
+                    
+                    solutionBtn.innerHTML = '<i class="fas fa-eye-slash text-xl"></i>';
+                    solutionBtn.setAttribute('title', 'Ocultar solución');
+                } else {
+                    // Ocultar solución
+                    cells.forEach(cell => {
+                        cell.classList.remove('solution-cell', 'reveal-animation');
+                    });
+                    
+                    solutionBtn.innerHTML = '<i class="fas fa-lightbulb text-xl"></i>';
+                    solutionBtn.setAttribute('title', 'Mostrar solución');
+                }
+                
+                isSolutionShown = !isSolutionShown;
+            }
+            
+            function exportToPDF() {
+                // Obtener elementos a exportar
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm'
+                });
+                
+                // Capturar el contenido como imagen usando html2canvas
+                const element = document.getElementById('puzzlePreview');
+                
+                // Ajustar temporalmente el ancho para la exportación
+                const originalWidth = element.style.width;
+                element.style.width = '210mm';
+                
+                // Ocultar el botón de solución temporalmente para la exportación
+                solutionBtn.style.display = 'none';
+                
+                html2canvas(element, {
+                    scale: 2,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true
+                }).then(canvas => {
+                    // Restaurar el ancho original y mostrar el botón de solución
+                    element.style.width = originalWidth;
+                    solutionBtn.style.display = '';
+                    
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = 210; // A4 width in mm
+                    const pageHeight = 295; // A4 height in mm
+                    const imgHeight = canvas.height * imgWidth / canvas.width;
+                    
+                    doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                    
+                    // Agregar nombre del creador si existe
+                    const creatorName = creatorNameInput.value.trim();
+                    const generatedByText = 'Generado con Generador de Sopas de Letras Cuadradas';
+                    let footerTextY = pageHeight - 10; // Posición Y para el texto del pie
+                    
+                    if (creatorName) {
+                        doc.setFontSize(9);
+                        doc.setTextColor(120);
+                        doc.text(`Elaborado por: ${creatorName}`, 105, footerTextY, { align: 'center' });
+                        footerTextY -= 5; // Mover el siguiente texto un poco más arriba
+                    }
+                    
+                    // Agregar texto genérico de generación (ajustando su posición Y si se añadió el nombre)
+                    doc.setFontSize(8);
+                    doc.setTextColor(150);
+                    doc.text(generatedByText, 105, footerTextY, { align: 'center' });
+                    
+                    // Descargar el PDF
+                    doc.save('sopa-de-letras-cuadrada.pdf');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
