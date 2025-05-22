@@ -306,11 +306,16 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Variables globales
-            let wordSearchGrid = [];
-            let wordList = [];
-            let foundWords = [];
-            let wordPositions = {}; // Almacenar las posiciones de las palabras
-            let isSolutionShown = false;
+            let wordSearchGrid = []; // Holds the 2D array for the word search grid letters
+            let wordList = [];       // Holds the list of words to be found
+            let foundWords = [];     // Holds the words that have been successfully found by the user
+            let wordPositions = {};  // Stores the coordinates and direction of placed words { WORD: {start, direction, cells} }
+            let isSolutionShown = false; // Tracks if the solution is currently displayed
+
+            // --- Interactive Word Selection Variables ---
+            let isSelecting = false;        // True when the user is actively dragging to select cells
+            let selectionStartCell = null;  // DOM element of the cell where selection started
+            let selectedCells = [];         // Array of DOM elements representing the current selection path
             
             // Elementos del DOM
             const wordListTextarea = document.getElementById('wordList');
@@ -648,8 +653,157 @@
                 
                 // Ocultar solución si está visible
                 if (isSolutionShown) {
-                    toggleSolution();
+                    toggleSolution(); // Reset solution state if it was shown during a previous generation
                 }
+
+                // Add event listeners for cell selection to each cell in the grid
+                const allCells = table.getElementsByTagName('td');
+                for (let cell of allCells) {
+                    // Handles the start of a potential word selection
+                    cell.addEventListener('mousedown', (event) => {
+                        isSelecting = true;                       // Set selection flag
+                        selectionStartCell = event.target;        // Record the starting cell
+                        selectedCells = [event.target];           // Initialize selected cells array with the start cell
+                        event.target.style.backgroundColor = '#ADD8E6'; // Apply temporary highlight (lightblue)
+                        event.preventDefault();                   // Prevent default text selection behavior
+                    });
+
+                    // Handles the dragging part of word selection
+                    cell.addEventListener('mousemove', (event) => {
+                        if (isSelecting) { // Only proceed if selection is active
+                            const currentCell = event.target;
+                            // Check if the mouse has moved to a new cell that is not already the last one selected
+                            if (selectedCells[selectedCells.length - 1] !== currentCell) {
+                                // Ensure the target is a TD (a cell) and not already in the current selection path
+                                if (currentCell.tagName === 'TD' && !selectedCells.find(c => c === currentCell)) {
+                                    selectedCells.push(currentCell);            // Add cell to selection path
+                                    currentCell.style.backgroundColor = '#ADD8E6'; // Apply temporary highlight
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Document-level mouseup listener to finalize selection and check for words
+            document.addEventListener('mouseup', () => {
+                if (isSelecting) { // Only proceed if a selection was active
+                    isSelecting = false; // End the selection process
+                    
+                    let wordWasFound = false; // Flag to track if the current selection matches a word
+
+                    // Only attempt to check for a word if more than one cell is selected (words usually have >1 letter)
+                    if (selectedCells.length > 1) {
+                        const foundWordStr = checkWordSelection(); // Check if the selection matches any word
+                        
+                        if (foundWordStr) { // If a word was found
+                            wordWasFound = true;
+                            // console.log("Found word in mouseup:", foundWordStr); // Kept for easier debugging if needed later
+
+                            // Apply permanent highlight (light green) to the cells of the found word
+                            selectedCells.forEach(cell => {
+                                cell.style.backgroundColor = '#90EE90'; 
+                            });
+
+                            // Mark the word as found in the word list displayed to the user
+                            const wordElementInList = document.querySelector(`#wordListPreview .word-item[data-word='${foundWordStr}']`);
+                            if (wordElementInList) {
+                                wordElementInList.classList.add('found');
+                            }
+                        }
+                    }
+
+                    // Clear temporary highlighting ONLY if a word was NOT found with the current selection
+                    // This prevents clearing permanent highlights of already found words if they are part of a new, failed selection.
+                    if (!wordWasFound) {
+                        selectedCells.forEach(cell => {
+                            // Check if the cell has the temporary highlight color (lightblue)
+                            if (cell.style.backgroundColor === 'rgb(173, 216, 230)') { 
+                                cell.style.backgroundColor = ''; // Reset background to default
+                            }
+                        });
+                    }
+                    
+                    // Reset selection state variables for the next selection attempt
+                    selectionStartCell = null;
+                    selectedCells = []; 
+                }
+            });
+
+            /**
+             * Checks if the currently selected cells form a valid word from the word list.
+             * Compares the selected sequence of letters (forwards and backwards) against the
+             * words in `wordList` and verifies their coordinates against `wordPositions`.
+             * @returns {string|false} The found word string if a match is successful, otherwise false.
+             */
+            function checkWordSelection() {
+                if (!selectedCells || selectedCells.length === 0) {
+                    return false; // No cells selected
+                }
+
+                // Get the string of letters from the selected cells, both forwards and backwards
+                const selectedStringForward = selectedCells.map(cell => cell.textContent).join('');
+                const selectedStringBackward = selectedStringForward.split('').reverse().join('');
+
+                // Iterate through the list of words to find
+                for (const word of wordList) {
+                    if (foundWords.includes(word)) {
+                        continue; // Skip if this word has already been found
+                    }
+
+                    const wordData = wordPositions[word]; // Get the stored position data for this word
+                    if (!wordData || !wordData.cells) {
+                        continue; // Word wasn't placed in the grid or data is missing
+                    }
+
+                    // Length of selected path must match the length of the word being checked
+                    if (word.length !== selectedCells.length) {
+                        continue;
+                    }
+                    
+                    let match = false;
+                    // Try matching the forward selection string with the word
+                    if (word === selectedStringForward) {
+                        match = compareCellCoordinates(selectedCells, wordData.cells, false);
+                    }
+                    
+                    // If no forward match, try matching the backward selection string
+                    if (!match && word === selectedStringBackward) {
+                        match = compareCellCoordinates(selectedCells, wordData.cells, true);
+                    }
+
+                    if (match) {
+                        console.log("Found word:", word); // Log successful find (useful for confirmation)
+                        foundWords.push(word);           // Add to list of found words
+                        return word;                     // Return the found word
+                    }
+                }
+                return false; // No match found
+            }
+
+            /**
+             * Compares the coordinates of the selected cells with the stored coordinates of a word.
+             * @param {Array<HTMLElement>} selection - Array of selected TD cell elements.
+             * @param {Array<Object>} storedCells - Array of {row, col} objects for the target word from wordPositions.
+             * @param {boolean} isReversed - True if the selection string was reversed (user selected word backwards).
+             * @returns {boolean} True if all cell coordinates match, false otherwise.
+             */
+            function compareCellCoordinates(selection, storedCells, isReversed) {
+                if (selection.length !== storedCells.length) {
+                    return false; // Should not happen if length check done in checkWordSelection
+                }
+                for (let i = 0; i < selection.length; i++) {
+                    const selectedCell = selection[i]; // Current cell from user's drag selection
+                    // If user selected backward, compare their first cell to word's last, etc.
+                    const storedCellInfo = isReversed ? storedCells[selection.length - 1 - i] : storedCells[i];
+                    
+                    // Compare coordinates (dataset values are strings, convert to int for comparison)
+                    if (parseInt(selectedCell.dataset.row) !== storedCellInfo.row ||
+                        parseInt(selectedCell.dataset.col) !== storedCellInfo.col) {
+                        return false; // Coordinate mismatch
+                    }
+                }
+                return true; // All coordinates matched
             }
             
             function toggleSolution() {
