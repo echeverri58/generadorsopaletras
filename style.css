@@ -1,0 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Schoolbell&display=swap');
+        
+        .font-schoolbell {
+            font-family: 'Schoolbell', cursive;
+        }
+        
+        .word-search-cell {
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: default;
+            transition: all 0.2s;
+        }
+        
+        .word-search-cell:hover {
+            transform: scale(1.1);
+            background-color: #f0f9ff;
+        }
+        
+        #wordSearchGrid {
+            border: 3px solid black;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .word-item {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .word-item:hover {
+            background-color: #f0f9ff;
+        }
+        
+        .word-item.found {
+            text-decoration: line-through;
+            color: #4ade80;
+        }
+        
+        .dropzone {
+            border: 2px dashed #cbd5e0;
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .dropzone.active {
+            border-color: #3b82f6;
+            background-color: #f0f9ff;
+        }
+        
+        .custom-radio input:checked + label {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        /* Estilo para asegurar que la cuadrícula sea cuadrada */
+        .square-grid {
+            display: inline-block;
+        }
+        
+        /* --- INICIO: Reglas CSS añadidas para corregir la cuadrícula --- */
+        #wordSearchGrid table {
+            display: table; /* Asegura que el elemento table se comporte como tabla */
+            border-collapse: collapse; /* Mantiene los bordes unidos */
+        }
+        
+        #wordSearchGrid tr {
+            display: table-row; /* Asegura que el elemento tr se comporte como fila */
+        }
+        
+        #wordSearchGrid td.word-search-cell {
+            display: table-cell; /* Asegura que el elemento td se comporte como celda */
+            width: 35px;
+            height: 35px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+            border: 1px solid #e2e8f0; /* Añade un borde si quieres verlo claramente */
+            padding: 0; /* Evita padding extra */
+        }
+        
+        /* Opcional: Si NO quieres bordes visibles */
+        #wordSearchGrid table.no-grid-lines td.word-search-cell {
+            border: none;
+        }
+        
+        /* Estilo para las celdas de solución */
+        .solution-cell {
+            background-color: #ffedd5;
+            color: #ea580c;
+            font-weight: 900;
+        }
+        
+        /* Botón de solución */
+        .solution-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .solution-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .solution-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Animación para mostrar la solución */
+        @keyframes revealSolution {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .reveal-animation {
+            animation: revealSolution 0.3s ease-out forwards;
+        }
